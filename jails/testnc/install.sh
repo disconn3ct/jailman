@@ -8,21 +8,49 @@ JAIL_NAME="testnc"
 JAIL_IP="$(sed 's|\(.*\)/.*|\1|' <<<"${testnc_ip4_addr}" )"
 DATABASE="$testnc_database"
 INCLUDES_PATH="${SCRIPT_DIR}/jails/testnc/includes"
-STANDALONE_CERT=$testnc_standalone_cert
-SELFSIGNED_CERT=$testnc_selfsigned_cert
-DNS_CERT=$testnc_dns_cert
-NO_CERT=$testnc_no_cert
-DL_FLAGS=$testnc_dl_flags
-DNS_SETTING=$testnc_dns_settings
-CERT_EMAIL=$testnc_cert_email
+STANDALONE_CERT=${testnc_standalone_cert}
+SELFSIGNED_CERT=${testnc_selfsigned_cert}
+DNS_CERT=${testnc_dns_cert}
+NO_CERT=${testnc_no_cert}
+DL_FLAGS=${testnc_dl_flags}
+DNS_SETTING=${testnc_dns_settings}
+CERT_EMAIL=${testnc_cert_email}
 
-DB_ROOT_PASSWORD=$(openssl rand -base64 16)
-DB_PASSWORD=$(openssl rand -base64 16)
+
+# Only generate new DB passwords when using buildin database
+# Set DB username and database to fixed "nextcloud"
+if [ "${DATABASE}" = "mariadb" ] || [ "${DATABASE}" = "pgsql" ]; then
+  DB_DATABASE="nextcloud"
+  DB_USER="nextcloud"
+  DB_ROOT_PASSWORD=$(openssl rand -base64 16)
+  DB_PASSWORD=$(openssl rand -base64 16)
+fi
+
 if [ "${DATABASE}" = "mariadb" ]; then
   DB_NAME="MariaDB"
+  DB_HOST="localhost:/tmp/mysql.sock"
 elif [ "${DATABASE}" = "pgsql" ]; then
   DB_NAME="PostgreSQL"
+  DB_HOST="localhost:/tmp/.s.PGSQL.5432"
+elif [ "${DATABASE}" = "pgsql-external" ]; then
+  DB_NAME="PostgreSQL"
+  DB_HOST="${testnc_db_host}"
+  DB_DATABASE="${testnc_db_database}"
+  DB_USER="${testnc_db_user}"
+  DB_PASSWORD="${testnc_db_password}"
+elif [ "${DATABASE}" = "mariadb-external" ]; then
+  DB_NAME="MariaDB"
+  DB_HOST="${testnc_db_host}"
+  DB_DATABASE="${testnc_db_database}"
+  DB_USER="${testnc_db_user}"
+  DB_PASSWORD="${testnc_db_password}"
+elif [ "${DATABASE}" = "mariadb-jail" ]; then
+  DB_DATABASE="nextcloud"
+  DB_USER="nextcloud"
+  DB_HOST="${mariadb_ip4_addr}"
+  DB_PASSWORD=$(openssl rand -base64 16)
 fi
+
 
 ADMIN_PASSWORD=$(openssl rand -base64 12)
 
@@ -82,6 +110,9 @@ if [ "$(ls -A "/mnt/${global_dataset_config}/${JAIL_NAME}/config")" ]; then
 	if [ "$(ls -A "/mnt/${global_dataset_config}/${JAIL_NAME}/db/${DATABASE}")" ]; then
 		echo "Database is compatible, continuing..."
 		REINSTALL="true"
+	elif [ "${DATABASE}" = "mariadb-external" ] || [ "${DATABASE}" = "pgsql-external" ] || [ "${DATABASE}" = "mariadb-jail" ]; then
+		echo "External database selected, unable to verify compatibility. REINSTALL MIGHT NOT WORK... Continuing"
+		REINSTALL="true"
 	else
 		echo "ERROR: You can not reinstall without the original database"
 		echo "Please try again after removing your config files or using the same database"
@@ -100,7 +131,7 @@ fi
 if [ "${DATABASE}" = "mariadb" ]; then
   createmount ${JAIL_NAME} ${global_dataset_config}/${JAIL_NAME}/db
   createmount ${JAIL_NAME} ${global_dataset_config}/${JAIL_NAME}/db/mariadb /var/db/mysql
-  chown -R 88:88 /var/db/postgres
+  chown -R 88:88 /var/db/mariadb
 elif [ "${DATABASE}" = "pgsql" ]; then
   createmount ${JAIL_NAME} ${global_dataset_config}/${JAIL_NAME}/db
   createmount ${JAIL_NAME} ${global_dataset_config}/${JAIL_NAME}/db/pgsql /var/db/postgres
@@ -138,6 +169,10 @@ if [ "${DATABASE}" = "mariadb" ]; then
   iocage exec "${JAIL_NAME}" pkg install -qy mariadb103-server php73-pdo_mysql php73-mysqli
 elif [ "${DATABASE}" = "pgsql" ]; then
   iocage exec "${JAIL_NAME}" pkg install -qy postgresql10-server php73-pgsql php73-pdo_pgsql
+elif [ "${DATABASE}" = "mariadb-external" ] || [ "${DATABASE}" = "mariadb-jail" ]; then
+  iocage exec "${JAIL_NAME}" pkg install -qy mariadb103-client php73-pdo_mysql php73-mysqli
+elif [ "${DATABASE}" = "pgsql-external" ]; then
+  iocage exec "${JAIL_NAME}" pkg install -qy postgresql10-client php73-pgsql php73-pdo_pgsql
 fi
 
 fetch -o /tmp https://getcaddy.com
@@ -241,6 +276,10 @@ else
 		iocage exec "${JAIL_NAME}" mysqladmin reload
 		iocage exec "${JAIL_NAME}" cp -f /mnt/includes/my.cnf /root/.my.cnf
 		iocage exec "${JAIL_NAME}" sed -i '' "s|mypassword|${DB_ROOT_PASSWORD}|" /root/.my.cnf
+	elif [ "${DATABASE}" = "mariadb-jail" ]; then
+		iocage exec "mariadb" mysql -u root -e "CREATE DATABASE nextcloud;"
+		iocage exec "mariadb" mysql -u root -e "GRANT ALL ON nextcloud.* TO nextcloud@localhost IDENTIFIED BY '${DB_PASSWORD}';"
+		iocage exec "mariadb" mysqladmin reload
 	elif [ "${DATABASE}" = "pgsql" ]; then
 		iocage exec "${JAIL_NAME}" cp -f /mnt/includes/pgpass /root/.pgpass
 		iocage exec "${JAIL_NAME}" chmod 600 /root/.pgpass
@@ -261,11 +300,11 @@ else
 	iocage exec "${JAIL_NAME}" echo "Nextcloud Administrator password is ${ADMIN_PASSWORD}" >> /root/${JAIL_NAME}_db_password.txt
 	
 	# CLI installation and configuration of Nextcloud
-	if [ "${DATABASE}" = "mariadb" ]; then
-		iocage exec "${JAIL_NAME}" su -m www -c "php /usr/local/www/nextcloud/occ maintenance:install --database=\"mysql\" --database-name=\"nextcloud\" --database-user=\"nextcloud\" --database-pass=\"${DB_PASSWORD}\" --database-host=\"localhost:/tmp/mysql.sock\" --admin-user=\"admin\" --admin-pass=\"${ADMIN_PASSWORD}\" --data-dir=\"/config/files\""
+	if [ "${DATABASE}" = "mariadb" ] || [ "${DATABASE}" = "mariadb-external" ] || [ "${DATABASE}" = "mariadb-jail" ]; then
+		iocage exec "${JAIL_NAME}" su -m www -c "php /usr/local/www/nextcloud/occ maintenance:install --database=\"mysql\" --database-name=\"${DB_DATABASE}\" --database-user=\"${DB_USER}\" --database-pass=\"${DB_PASSWORD}\" --database-host=\"${DB_HOST}\" --admin-user=\"admin\" --admin-pass=\"${ADMIN_PASSWORD}\" --data-dir=\"/config/files\""
 		iocage exec "${JAIL_NAME}" su -m www -c "php /usr/local/www/nextcloud/occ config:system:set mysql.utf8mb4 --type boolean --value=\"true\""
-	elif [ "${DATABASE}" = "pgsql" ]; then
-		iocage exec "${JAIL_NAME}" su -m www -c "php /usr/local/www/nextcloud/occ maintenance:install --database=\"pgsql\" --database-name=\"nextcloud\" --database-user=\"nextcloud\" --database-pass=\"${DB_PASSWORD}\" --database-host=\"localhost:/tmp/.s.PGSQL.5432\" --admin-user=\"admin\" --admin-pass=\"${ADMIN_PASSWORD}\" --data-dir=\"/config/files\""
+	elif [ "${DATABASE}" = "pgsql" ] || [ "${DATABASE}" = "pgsql-external" ]; then
+		iocage exec "${JAIL_NAME}" su -m www -c "php /usr/local/www/nextcloud/occ maintenance:install --database=\"pgsql\" --database-name=\"${DB_DATABASE}\" --database-user=\"${DB_USER}\" --database-pass=\"${DB_PASSWORD}\" --database-host=\"${DB_HOST}\" --admin-user=\"admin\" --admin-pass=\"${ADMIN_PASSWORD}\" --data-dir=\"/config/files\""
 	fi
 	iocage exec "${JAIL_NAME}" su -m www -c "php /usr/local/www/nextcloud/occ db:add-missing-indices"
 	iocage exec "${JAIL_NAME}" su -m www -c "php /usr/local/www/nextcloud/occ db:convert-filecache-bigint --no-interaction"
@@ -317,11 +356,14 @@ else
 
 	echo "Default user is admin, password is ${ADMIN_PASSWORD}"
 	echo ""
+
 	echo "Database Information"
 	echo "--------------------"
 	echo "Database user = nextcloud"
 	echo "Database password = ${DB_PASSWORD}"
-	echo "The ${DB_NAME} root password is ${DB_ROOT_PASSWORD}"
+	if [ "${DATABASE}" = "mariadb" ] || [ "${DATABASE}" = "pgsql" ]; then
+		echo "The ${DB_NAME} root password is ${DB_ROOT_PASSWORD}"
+	fi
 	echo ""
 	echo "All passwords are saved in /root/${JAIL_NAME}_db_password.txt"
 fi
