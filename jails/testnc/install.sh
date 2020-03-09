@@ -45,10 +45,10 @@ elif [ "${DATABASE}" = "mariadb-external" ]; then
   DB_USER="${testnc_db_user}"
   DB_PASSWORD="${testnc_db_password}"
 elif [ "${DATABASE}" = "mariadb-jail" ]; then
-  DB_DATABASE="nextcloud"
-  DB_USER="nextcloud"
-  DB_HOST="${mariadb_ip4_addr}"
-  DB_PASSWORD=$(openssl rand -base64 16)
+  DB_DATABASE="nextcloud2"
+  DB_USER="nextcloud2"
+  DB_HOST="$(sed 's|\(.*\)/.*|\1|' <<<"${mariadb_ip4_addr}"):3306"
+  DB_PASSWORD="${testnc_db_password}"
 fi
 
 
@@ -65,6 +65,30 @@ ADMIN_PASSWORD=$(openssl rand -base64 12)
 if [ -z "${testnc_ip4_addr}" ]; then
   echo 'Configuration error: The Nextcloud jail does NOT accept DHCP'
   echo 'Please reinstall using a fixed IP adress'
+  exit 1
+fi
+
+if [ -z "${DB_PASSWORD}" ]; then
+  echo 'Configuration error: The Nextcloud Jail needs a database password'
+  echo 'Please reinstall with a defifined: db_password'
+  exit 1
+fi
+
+if [ -z "${DB_USER}" ]; then
+  echo 'Configuration error: The Nextcloud Jail needs a database user'
+  echo 'Please reinstall with a defifined: db_user'
+  exit 1
+fi
+
+if [ -z "${DB_HOST}" ]; then
+	echo 'Configuration error: The Nextcloud Jail needs a database host'
+  echo 'Please reinstall with a defifined: db_host'
+  exit 1
+fi
+
+if [ -z "${DB_DATABASE}" ]; then
+	echo 'Configuration error: The Nextcloud Jail needs a database name'
+  echo 'Please reinstall with a defifined: db_database'
   exit 1
 fi
 
@@ -277,8 +301,8 @@ else
 		iocage exec "${JAIL_NAME}" cp -f /mnt/includes/my.cnf /root/.my.cnf
 		iocage exec "${JAIL_NAME}" sed -i '' "s|mypassword|${DB_ROOT_PASSWORD}|" /root/.my.cnf
 	elif [ "${DATABASE}" = "mariadb-jail" ]; then
-		iocage exec "mariadb" mysql -u root -e "CREATE DATABASE nextcloud;"
-		iocage exec "mariadb" mysql -u root -e "GRANT ALL ON nextcloud.* TO nextcloud@localhost IDENTIFIED BY '${DB_PASSWORD}';"
+		iocage exec "mariadb" mysql -u root -e "CREATE DATABASE ${DB_DATABASE};"
+		iocage exec "mariadb" mysql -u root -e "GRANT ALL ON ${DB_DATABASE}.* TO ${DB_USER}@${JAIL_IP} IDENTIFIED BY '${DB_PASSWORD}';"
 		iocage exec "mariadb" mysqladmin reload
 	elif [ "${DATABASE}" = "pgsql" ]; then
 		iocage exec "${JAIL_NAME}" cp -f /mnt/includes/pgpass /root/.pgpass
@@ -359,7 +383,7 @@ else
 
 	echo "Database Information"
 	echo "--------------------"
-	echo "Database user = nextcloud"
+	echo "Database user = ${DB_USER}"
 	echo "Database password = ${DB_PASSWORD}"
 	if [ "${DATABASE}" = "mariadb" ] || [ "${DATABASE}" = "pgsql" ]; then
 		echo "The ${DB_NAME} root password is ${DB_ROOT_PASSWORD}"
