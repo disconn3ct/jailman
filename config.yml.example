@@ -60,7 +60,15 @@ nextcloud: nextcloud
   standalone_cert: 0
   selfsigned_cert: 0
   dns_cert: 0
-  no_cert: 0
+  no_cert: 1
   dl_flags: ""
   dns_settings: ""
   cert_email: "placeholder@holdplace.org"
+  database: mariadb
+#  db_database:
+#  db_user:
+#  db_password
+#  db_host
+  
+mariadb: mariadb
+  ip4_addr: 192.168.1.5
