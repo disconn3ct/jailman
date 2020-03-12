@@ -1,0 +1,39 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Master workflow
+
+# Controls when the action will run. Triggers the workflow on push or pull request 
+# events but only for the master branch
+on:
+  push:
+    branches: [ master ]
+
+
+jobs:
+  create-wiki:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@master
+    - name: rename-readme
+      run: |
+        for pathname in jails/*/README.MD; do ! cp "$pathname" "wiki/$( basename "$( dirname "$pathname" )" ).md"; done
+        for pathname in jails/*/README.md; do ! cp "$pathname" "wiki/$( basename "$( dirname "$pathname" )" ).md"; done 
+        for pathname in jails/*/readme.md; do ! cp "$pathname" "wiki/$( basename "$( dirname "$pathname" )" ).md"; done
+        for pathname in jails/*/Readme.md; do ! cp "$pathname" "wiki/$( basename "$( dirname "$pathname" )" ).md"; done
+      shell: bash
+    - name: copy file
+      uses: canastro/copy-file-action@master
+      with:
+        source: "jails/**/*.md"
+        target: "wiki/"
+    - name: Upload wiki to Wiki
+      uses: docker://decathlon/wiki-page-creator-action:latest
+      env:
+        ACTION_MAIL: ornias1993@users.noreply.github.com
+        ACTION_NAME: ornias1993
+        GH_PAT: ${{ secrets.WIKI_GH_PAT }}
+        MD_FOLDER: wiki
+        OWNER: ornias1993
+        REPO_NAME: jailman
+        SKIP_MD: README.md
