@@ -64,6 +64,10 @@ jail:
     ip4_addr: 192.168.1.99/24
     gateway: 192.168.1.1
   
+  transvpn: transvpn
+    pkgs: bash unzip unrar transmission openvpn
+    ovpnconf: openvpn.conf
+    extraconf: allow_tun=1
   
   nextcloud: 
     blueprint: nextcloud
