@@ -1,1 +1,3 @@
 # Provide your own configuration here
+# The device should match the tundev setting
+dev tun1001

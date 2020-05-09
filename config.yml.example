@@ -68,7 +68,8 @@ jail:
     pkgs: bash unzip unrar transmission openvpn
     ovpnconf: openvpn.conf
     extraconf: allow_tun=1
-  
+    tundev: tun0
+
   nextcloud: 
     blueprint: nextcloud
     ip4_addr: 192.168.1.99/24
