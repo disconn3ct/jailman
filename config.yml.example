@@ -70,6 +70,12 @@ jail:
     extraconf: allow_tun=1
     tundev: tun0
 
+  qbitvpn: qbitvpn
+    pkgs: bash unzip unrar qbittorrent-nox openvpn
+    ovpnconf: openvpn.conf
+    extraconf: allow_tun=1
+    tundev: tun10
+
   nextcloud: 
     blueprint: nextcloud
     ip4_addr: 192.168.1.99/24
