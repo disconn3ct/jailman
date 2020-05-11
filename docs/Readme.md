@@ -87,6 +87,7 @@ Basic means: The same setup as a FreeNAS plugin would've, DHCP on bridge0.
 
 - transmission
 - transvpn (transmission + openvpn)
+- qbitvpn (qbittorrent + openvpn)
 - jackett
 
 #### Media
