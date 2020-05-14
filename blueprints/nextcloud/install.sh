@@ -8,7 +8,7 @@ JAIL_IP="jail_${1}_ip4_addr"
 JAIL_IP="${!JAIL_IP%/*}"
 HOST_NAME="jail_${1}_host_name"
 TIME_ZONE="jail_${1}_time_zone"
-INCLUDES_PATH="${SCRIPT_DIR}/blueprints/nextcloud/includes"
+INCLUDES_PATH="${SCRIPT_DIR:?}/blueprints/nextcloud/includes"
 
 # SSL/CERT Defaults
 CERT_TYPE="jail_${1}_cert_type"
@@ -22,7 +22,6 @@ DNS_ENV="jail_${1}_dns_env"
 DB_TYPE="jail_${1}_db_type"
 DB_TYPE="${!DB_TYPE:-mariadb}"
 DB_JAIL="jail_${1}_db_jail"
-# shellcheck disable=SC2154
 DB_HOST="jail_${!DB_JAIL}_ip4_addr"
 DB_HOST="${!DB_HOST%/*}:3306"
 
@@ -62,8 +61,7 @@ if [ -z "${!DB_PASSWORD}" ]; then
   exit 1
 fi
 
-# shellcheck disable=SC2154
-if [ -z "${!TIME_ZONE}" ]; then
+if [ -z "${!TIME_ZONE:-}" ]; then
   echo 'Configuration error: !TIME_ZONE must be set'
   exit 1
 fi
@@ -96,8 +94,7 @@ if [ "$CERT_TYPE" == "DNS_CERT" ]; then
 fi  
 
 # Make sure DB_PATH is empty -- if not, MariaDB will choke
-# shellcheck disable=SC2154
-if [ "$(ls -A "/mnt/${global_dataset_config}/${1}/config")" ]; then
+if [ "$(ls -A "/mnt/${global_dataset_config:?}/${1}/config")" ]; then
 	echo "Reinstall of Nextcloud detected... "
 	REINSTALL="true"
 fi
@@ -110,9 +107,9 @@ fi
 #####
 
 # Create and Mount Nextcloud, Config and Files
-createmount "${1}" "${global_dataset_config}"/"${1}"/config /usr/local/www/nextcloud/config
-createmount "${1}" "${global_dataset_config}"/"${1}"/themes /usr/local/www/nextcloud/themes
-createmount "${1}" "${global_dataset_config}"/"${1}"/files /config/files
+createmount "${1}" "${global_dataset_config}/${1}/config" /usr/local/www/nextcloud/config
+createmount "${1}" "${global_dataset_config}/${1}/themes" /usr/local/www/nextcloud/themes
+createmount "${1}" "${global_dataset_config}/${1}/files" /config/files
 
 # Install includes fstab
 iocage exec "${1}" mkdir -p /mnt/includes
@@ -121,7 +118,6 @@ iocage fstab -a "${1}" "${INCLUDES_PATH}" /mnt/includes nullfs rw 0 0
 
 iocage exec "${1}" chown -R www:www /config/files
 iocage exec "${1}" chmod -R 770 /config/files
-
 
 #####
 # 
@@ -231,7 +227,7 @@ else
 	
 	
 	# Save passwords for later reference
-	iocage exec "${1}" echo "${DB_NAME} root password is ${DB_ROOT_PASSWORD}" > /root/"${1}"_db_password.txt
+	iocage exec "${1}" echo "${DB_NAME:?} root password is ${DB_ROOT_PASSWORD:?}" > /root/"${1}"_db_password.txt
 	iocage exec "${1}" echo "Nextcloud database password is ${!DB_PASSWORD}" >> /root/"${1}"_db_password.txt
 	iocage exec "${1}" echo "Nextcloud Administrator password is ${ADMIN_PASSWORD}" >> /root/"${1}"_db_password.txt
 	

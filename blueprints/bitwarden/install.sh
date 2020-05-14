@@ -12,19 +12,15 @@ DB_DATABASE="${!DB_DATABASE:-$1}"
 DB_USER="jail_${1}_db_user"
 DB_USER="${!DB_USER:-$DB_DATABASE}"
 
-# shellcheck disable=SC2154
 INSTALL_TYPE="jail_${1}_db_type"
 INSTALL_TYPE="${!INSTALL_TYPE:-mariadb}"
 
 DB_JAIL="jail_${1}_db_jail"
-# shellcheck disable=SC2154
 DB_HOST="jail_${!DB_JAIL}_ip4_addr"
 DB_HOST="${!DB_HOST%/*}:3306"
 
-# shellcheck disable=SC2154
 DB_PASSWORD="jail_${1}_db_password"
 DB_STRING="mysql://${DB_USER}:${!DB_PASSWORD}@${DB_HOST}/${DB_DATABASE}"
-# shellcheck disable=SC2154
 ADMIN_TOKEN="jail_${1}_admin_token"
 
 if [ -z "${!DB_PASSWORD}" ]; then
@@ -73,8 +69,7 @@ iocage exec "${1}" "fetch http://github.com/dani-garcia/bw_web_builds/releases/d
 iocage exec "${1}" "tar -xzvf /usr/local/share/bitwarden/bw_web_$WEB_TAG.tar.gz -C /usr/local/share/bitwarden/"
 iocage exec "${1}" rm /usr/local/share/bitwarden/bw_web_"$WEB_TAG".tar.gz
 
-# shellcheck disable=SC2154
-if [ -f "/mnt/${global_dataset_config}/${1}/ssl/bitwarden-ssl.crt" ]; then
+if [ -f "/mnt/${global_dataset_config:?}/${1}/ssl/bitwarden-ssl.crt" ]; then
     echo "certificate exist... Skipping cert generation"
 else
 	"No ssl certificate present, generating self signed certificate"
@@ -99,17 +94,16 @@ fi
 iocage exec "${1}" "pw user add bitwarden -c bitwarden -u 725 -d /nonexistent -s /usr/bin/nologin"
 iocage exec "${1}" chown -R bitwarden:bitwarden /usr/local/share/bitwarden /config
 iocage exec "${1}" mkdir /usr/local/etc/rc.d /usr/local/etc/rc.conf.d
-# shellcheck disable=SC2154
-cp "${SCRIPT_DIR}"/blueprints/bitwarden/includes/bitwarden.rc /mnt/"${global_dataset_iocage}"/jails/"${1}"/root/usr/local/etc/rc.d/bitwarden
-cp "${SCRIPT_DIR}"/blueprints/bitwarden/includes/bitwarden.rc.conf /mnt/"${global_dataset_iocage}"/jails/"${1}"/root/usr/local/etc/rc.conf.d/bitwarden
-echo 'export DATABASE_URL="'"${DB_STRING}"'"' >> /mnt/"${global_dataset_iocage}"/jails/"${1}"/root/usr/local/etc/rc.conf.d/bitwarden
-echo 'export ADMIN_TOKEN="'"${!ADMIN_TOKEN}"'"' >> /mnt/"${global_dataset_iocage}"/jails/"${1}"/root/usr/local/etc/rc.conf.d/bitwarden
+cp "${SCRIPT_DIR:?}/blueprints/bitwarden/includes/bitwarden.rc" "/mnt/${global_dataset_iocage:?}/jails/${1}/root/usr/local/etc/rc.d/bitwarden"
+cp "${SCRIPT_DIR}/blueprints/bitwarden/includes/bitwarden.rc.conf" "/mnt/${global_dataset_iocage}/jails/${1}/root/usr/local/etc/rc.conf.d/bitwarden"
+echo 'export DATABASE_URL="'"${DB_STRING}"'"' >> "/mnt/${global_dataset_iocage}/jails/${1}/root/usr/local/etc/rc.conf.d/bitwarden"
+echo 'export ADMIN_TOKEN="'"${!ADMIN_TOKEN}"'"' >> "/mnt/${global_dataset_iocage}/jails/${1}/root/usr/local/etc/rc.conf.d/bitwarden"
 
 if [ "${!ADMIN_TOKEN}" == "NONE" ]; then
 	echo "Admin_token set to NONE, disabling admin portal"
 else
 	echo "Admin_token set and admin portal enabled"
-	iocage exec "${1}" echo "${DB_NAME} Admin Token is ${!ADMIN_TOKEN}" > /root/"${1}"_admin_token.txt
+	iocage exec "${1}" echo "${DB_NAME:?} Admin Token is ${!ADMIN_TOKEN}" > /root/"${1}"_admin_token.txt
 fi
 
 iocage exec "${1}" chmod u+x /usr/local/etc/rc.d/bitwarden

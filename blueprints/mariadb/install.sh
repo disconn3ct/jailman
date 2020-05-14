@@ -7,14 +7,11 @@
 #####
 
 # Initialise defaults
-# shellcheck disable=SC2154
 JAIL_IP="jail_${1}_ip4_addr"
 JAIL_IP="${!JAIL_IP%/*}"
-INCLUDES_PATH="${SCRIPT_DIR}/blueprints/mariadb/includes"
-# shellcheck disable=SC2154
+INCLUDES_PATH="${SCRIPT_DIR:?}/blueprints/mariadb/includes"
 CERT_EMAIL="jail_${1}_cert_email"
 CERT_EMAIL="${!CERT_EMAIL:-placeholder@email.fake}"
-# shellcheck disable=SC2154
 DB_ROOT_PASSWORD="jail_${1}_db_root_password"
 HOST_NAME="jail_${1}_host_name"
 DL_FLAGS=""
@@ -28,8 +25,7 @@ if [ -z "${JAIL_IP}" ]; then
 fi
 
 # Make sure DB_PATH is empty -- if not, MariaDB/PostgreSQL will choke
-# shellcheck disable=SC2154
-if [ "$(ls -A "/mnt/${global_dataset_config}/${1}/db")" ]; then
+if [ "$(ls -A "/mnt/${global_dataset_config:?}/${1}/db")" ]; then
 	echo "Reinstall of mariadb detected... Continuing"
 	REINSTALL="true"
 fi
@@ -67,7 +63,6 @@ iocage exec "${1}" sysrc mysql_enable="YES"
 echo "Copying Caddyfile for no SSL"
 iocage exec "${1}" cp -f /mnt/includes/caddy.rc /usr/local/etc/rc.d/caddy
 iocage exec "${1}" cp -f /mnt/includes/Caddyfile /usr/local/www/Caddyfile
-# shellcheck disable=SC2154
 iocage exec "${1}" sed -i '' "s/yourhostnamehere/${!HOST_NAME}/" /usr/local/www/Caddyfile
 iocage exec "${1}" sed -i '' "s/JAIL-IP/${JAIL_IP}/" /usr/local/www/Caddyfile
 

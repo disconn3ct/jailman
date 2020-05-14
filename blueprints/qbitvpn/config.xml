@@ -1,0 +1,3 @@
+blueprint:
+    qbitvpn:
+      pkgs: bash unzip unrar qbittorrent-nox openvpn

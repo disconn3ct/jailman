@@ -8,14 +8,12 @@
 #####
 
 # Initialise variables
-# shellcheck disable=SC2154
 JAIL_IP="jail_${1}_ip4_addr"
 JAIL_IP="${!JAIL_IP%/*}"
-INCLUDES_PATH="${SCRIPT_DIR}/blueprints/influxdb/includes"
+INCLUDES_PATH="${SCRIPT_DIR:?}/blueprints/influxdb/includes"
 
 # Mount and configure proper configuration location
-# shellcheck disable=SC2154
-cp -rf "${INCLUDES_PATH}/influxd.conf" "/mnt/${global_dataset_config}/${1}/influxd.conf"
+cp -rf "${INCLUDES_PATH}/influxd.conf" "/mnt/${global_dataset_config:?}/${1}/influxd.conf"
 iocage exec "${1}" mkdir -p /config/db/data /config/db/meta /config/db/wal
 iocage exec "${1}" chown -R influxd:influxd /config/db
 iocage exec "${1}" sysrc influxd_conf="/config/influxd.conf"
